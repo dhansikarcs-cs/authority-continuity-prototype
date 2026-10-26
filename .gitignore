@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# Generated experiment reports (regenerate by running the prototype)
+reports/*.json
+
+# Packaged archives
+*.zip
+
+# Local research notes (not part of the prototype)
+Plan.md
+Techh.md
+
+# OS noise
+.DS_Store
+Thumbs.db
