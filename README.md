@@ -149,18 +149,50 @@ For this implementation, the tests show that:
   write;
 - denied operations left the resource untouched in every scenario tested.
 
-## Limitations
+## Status: build stage, made to be copied and raised
 
-- Local simulation only. One in-memory calendar, one process, no concurrency, no real agents.
-- The TOCTOU race is deterministic, written as two ordered paths. Real races depend on timing and
-  this doesn't model that.
-- Identity is a string lookup in one trusted registry. No authentication, signing, or credential
-  lifecycle.
-- The policy model is deliberately small: permitted, revoked, protected, approval. It isn't a policy
-  language and has no roles, time windows, or rate limits.
-- It assumes every effect goes through the boundary. Real systems have side channels this doesn't
-  cover.
-- I didn't compare it against an existing authorization system, so there's no novelty claim here.
+This is a build-stage artifact, not a finished system. I wrote it to get one idea out of my head and
+onto a test bench: authority has to be checked near the effect, because a decision doesn't stay true
+by itself. What's here is the smallest thing that demonstrates that, with tests that fail if the
+behaviour breaks.
+
+Treat it as a scaffold. Copy it, fork it, rip out the mock calendar and put a real resource behind
+the boundary. The useful parts are the check order, the two-stage decision/execution split, and the
+audit record shape. The code volume is not the point.
+
+### What was actually tested
+
+- 10 unit tests, run with `python -m unittest discover -s tests`, plus 9 experiment scenarios run
+  through `python authoritycheck.py`, from a fresh clone of this repo.
+- Python 3.9+, standard library only, no network access at any point.
+- Behaviours covered: permitted action executes; protected resource refuses; revocation blocks the
+  next attempt; an extra tool grants nothing; a sub-agent can't exceed its delegation; unknown
+  agents are rejected before any other check; a widened claim in the request is ignored in favour of
+  the registry; a denied request leaves the whole resource state byte-identical; every decision is
+  logged; a stale decision can execute after revocation while revalidation blocks it.
+
+### What was not tested
+
+- Concurrency. There is no threading, no locking, no real race window. The TOCTOU pair is two
+  ordered stages, deliberately deterministic and reviewable, not a timing reproduction.
+- Real agents. The "agent" is a fixture that builds a request. No model, no planner, no tool-calling
+  loop, so nothing here says anything about how a real agent would behave under pressure.
+- Identity. `AGENT_REGISTRY` is a dict lookup. No authentication, signing, credential rotation, or
+  trust boundary between processes.
+- Persistence and scale. In-memory calendar, one process, two events. No database, no transactions,
+  no rollback.
+- Adversarial testing. No property-based tests, fuzzing, or attempts to bypass the boundary through
+  side channels. Only the paths I thought to write down.
+- Comparison. No baseline against an existing authorization system, so no novelty claim.
+
+### Known rough edges
+
+- The boundary resolves authority from the registry, so an `AgentSimulator`'s own tool list is
+  cosmetic in these tests. The fixtures happen to match the registry, which means the tests confirm
+  registry behaviour rather than exercising every simulator configuration.
+- `delete` never reaches the approval gate in the default setup because it's already blocked at the
+  delegation step. The gate works, it's just downstream of two other denials.
+- The policy model is four sets. No roles, time windows, rate limits, or obligations.
 
 What it doesn't prove:
 
